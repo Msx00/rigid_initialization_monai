@@ -20,7 +20,7 @@ with adapted PCA initialization and the original rigid ICP routines.
 | Smoothing / mesh reduction | 0 / 20% | 0 / 20% |
 | Rotation above 30 degrees | Case rejected | Case retained with a review flag |
 | Distances | Corrected affine world units; mm not established for development data | Physical millimetres with validated image geometry |
-| Guide | [MuReg](docs/MUREG.md) | [TCIA](docs/TCIA.md) / [Chinese](docs/TCIA.zh-CN.md) |
+| Guide | [MuReg](docs/MUREG.md) | [TCIA](docs/TCIA.md) |
 
 Do not swap these workflows' transforms or preprocessing assumptions. MONAI
 itself is not required to produce the outputs; install it in your downstream

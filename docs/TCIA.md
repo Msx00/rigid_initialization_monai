@@ -4,7 +4,7 @@
 
 Register prostate MRI to transrectal ultrasound in physical millimetres and export paired volumes for MONAI. Each case contains the resampled MR, fixed US, prostate masks, optional numbered lesion masks and both rigid transforms. A single command writes a relative-path `dataset.json` for the existing train, validation and test splits.
 
-[中文使用说明](TCIA.zh-CN.md) · [Input CSV schema](tcia/DATA_FORMAT.md) · [Raw TCIA conversion](tcia/RAW_TCIA.md) · [Geometry](tcia/GEOMETRY.md)
+[Input CSV schema](tcia/DATA_FORMAT.md) · [Raw TCIA conversion](tcia/RAW_TCIA.md) · [Geometry](tcia/GEOMETRY.md)
 
 ## Try it with synthetic data
 
