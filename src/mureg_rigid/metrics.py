@@ -66,6 +66,8 @@ def evaluate_output(directory, split='test'):
     metas = json.loads((directory / split / 'meta/all_meta.json').read_text(encoding='utf-8'))
     if not all(m['accepted'] for m in metas):
         raise ValueError('Not every case was accepted; complete-cohort comparison required')
+    if any(m.get('registration_direction') != 'MR_to_US' for m in metas):
+        raise ValueError('Expected MR-to-US metadata from version 0.3.0 or later; use the matching historical release for older outputs')
     rows, units = [], set()
     for m in metas:
         case = m['case']
@@ -75,7 +77,8 @@ def evaluate_output(directory, split='test'):
         units.update([a.header.get_xyzt_units()[0], b.header.get_xyzt_units()[0]])
         rows.append(dict(case=case, **label_metrics(np.asanyarray(a.dataobj), np.asanyarray(b.dataobj), a.affine)))
     return {'definitions': DEFINITIONS, 'source_output': str(directory.resolve()), 'split': split,
-            'cases': len(rows), 'nifti_spatial_units': sorted(units), 'metrics': aggregate(rows), 'case_metrics': rows}
+            'cases': len(rows), 'nifti_spatial_units': sorted(units), 'metrics': aggregate(rows), 'case_metrics': rows,
+            'registration_direction': 'MR_to_US', 'output_reference': 'US'}
 
 
 def main():

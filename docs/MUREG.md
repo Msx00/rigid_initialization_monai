@@ -1,7 +1,7 @@
 # MuReg PCA + ICP Rigid Registration
 
 Rigid initialization of prostate MR–US pairs for subsequent deformable registration.
-**US is moving; MR is fixed.**
+**MR is moving; US is fixed (version 0.3.0 onward).**
 
 This project adapts the PCA + ICP workflow from
 [dalbenzioG/Initial_Registration](https://github.com/dalbenzioG/Initial_Registration),
@@ -74,7 +74,7 @@ command refuses a split containing rejected cases.
 ### 3. Register a pair of binary masks
 
 ```bash
-mureg-rigid-masks --moving-mask us_mask.nii.gz --fixed-mask mr_mask.nii.gz --out-transform us_to_mr.json
+mureg-rigid-masks --moving-mask mr_mask.nii.gz --fixed-mask us_mask.nii.gz --out-transform mr_to_us.json
 ```
 
 Masks must be nonempty **3D binary NIfTI files**, encoded as 0/1 or 0/255. This
@@ -139,7 +139,9 @@ mureg-rigid --data-root /path/to/dataset --out-dir /path/to/profile_output --sub
 
 Explicit flags override JSON; JSON overrides defaults. The angle gate is a
 separate flag, not a profile JSON field. `--selection-dataset` records a profile's
-parameter-selection origin, not the input split; its default is `train_val`.
+parameter-selection origin for the current direction, not the input split;
+its default is `unspecified`. The bundled numeric defaults originated from
+historical US-to-MR experiments and have not been reoptimized for MR-to-US.
 Use `--selection-dataset unspecified` for a custom profile of unknown origin.
 Run any command with `--help` for all options.
 
@@ -151,11 +153,11 @@ Each requested split contains:
 
 | Folder | Contents |
 | --- | --- |
-| `mr_images/` | Fixed MR images |
-| `us_images/` | US images already rigidly resampled to the MR grid |
-| `mr_labels/`, `us_labels/` | Fixed and initialized six-channel labels |
+| `mr_images/` | MR images already rigidly resampled to the US grid |
+| `us_images/` | Fixed US images |
+| `mr_labels/`, `us_labels/` | Initialized MR and fixed US six-channel labels |
 | `mr_labels_maps/`, `us_labels_maps/` | Derived argmax label maps |
-| `us_images_before_rigid/` | Preprocessed US images before the rigid transform |
+| `mr_images_before_rigid/` | Preprocessed MR images before the rigid transform |
 | `registration_masks/` | Exact binary channel0 masks used for fitting |
 | `meta/` | Per-case transforms, PCA axes, diagnostics and acceptance summaries |
 
@@ -179,18 +181,19 @@ diagnostic transform. This mode does not export resampled images.
 Transforms use homogeneous **column-vector world coordinates**:
 
 ```text
-p_MR = T_us2mr @ p_US
-T_us2mr = T_icp @ T_initial
+p_US = T_mr2us @ p_MR
+T_mr2us = T_icp @ T_initial
 ```
 
-Batch metadata stores `T_us2mr_4x4` and `T_mr2us_4x4`. The mask command uses
+Batch metadata stores forward `T_mr2us_4x4`, inverse `T_us2mr_4x4`, and
+`registration_direction: MR_to_US`. PCA frame keys are `moving` and `fixed`. The mask command uses
 `T_moving_to_fixed` and `T_fixed_to_moving`. These are not voxel-index matrices.
 Resampling uses the inverse map from the fixed grid into the moving image;
 images use linear interpolation, labels use nearest-neighbour.
 
-For subsequent deformable registration, use `mr_images` as fixed and `us_images`
+For subsequent deformable registration, use `us_images` as fixed and `mr_images`
 as the initialized moving input. **Do not apply the stored rigid matrix again**
-to `us_images` or `us_labels`.
+to `mr_images` or `mr_labels`.
 
 ## Changes from the Original Workflow
 
@@ -226,8 +229,11 @@ The verifier also reports native labels1–5 TRE averaged within cases and then
 across cases; this differs from pooled saved-label TRE. Distance units are affine
 world coordinates. **Millimetres require confirmed spatial units and calibration.**
 
-The default profile was selected on **65 training + 8 validation cases** using
+The numeric defaults were selected for **US-to-MR** on **65 training + 8 validation cases** using
 pooled labels1–5 TRE, requiring all cases and valid paired labels to be retained.
+They are retained as a starting profile for MR-to-US, without a new parameter
+search or a claim that they are optimal for this direction. Historical TRE and
+surface metrics must not be relabelled as MR-to-US results.
 Earlier development also used test data. These results are not an untouched
 independent-test evaluation. Validate parameter choices on your own data before
 final testing. See [method provenance](METHOD.md).
@@ -256,7 +262,8 @@ python -m pip wheel . --no-deps --wheel-dir dist
 
 - [Method and metric definitions](METHOD.md)
 - [Data and coordinate conventions](DATA_FORMAT.md)
-- [Release validation](VALIDATION.md)
+- [MR-to-US migration and validation](MR_TO_US_MIGRATION.md)
+- [Historical release validation](VALIDATION.md)
 - [GitHub publishing instructions](PUBLISHING.md)
 
 The source release includes code, configuration, documentation and synthetic tests.

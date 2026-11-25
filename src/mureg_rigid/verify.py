@@ -34,36 +34,37 @@ def format_tre_values(value, *, as_text=False):
 
 def evaluate_case(split, meta):
     case = meta['case']
-    T = np.asarray(meta['T_us2mr_4x4'])
+    assert meta.get('registration_direction') == 'MR_to_US', 'Expected an MR-to-US result from version 0.3.0 or later'
+    T = np.asarray(meta['T_mr2us_4x4'])
     angle = registration.rotation_angle_deg(T[:3, :3])
     assert angle <= registration.ICP_MAX_ROT_DEG + 1e-7, (split, case, angle)
     assert meta['icp_params']['max_rot_deg'] == registration.ICP_MAX_ROT_DEG
     assert np.allclose(T[:3, :3].T @ T[:3, :3], np.eye(3), atol=1e-6)
     assert np.isclose(np.linalg.det(T[:3, :3]), 1, atol=1e-6)
-    assert np.allclose(T @ np.asarray(meta['T_mr2us_4x4']), np.eye(4), atol=1e-6)
+    assert np.allclose(T @ np.asarray(meta['T_us2mr_4x4']), np.eye(4), atol=1e-6)
     saved = {}
-    for folder in ['mr_images', 'us_images', 'mr_labels', 'us_labels', 'mr_labels_maps', 'us_labels_maps', 'us_images_before_rigid']:
+    for folder in ['us_images', 'mr_images', 'us_labels', 'mr_labels', 'us_labels_maps', 'mr_labels_maps', 'mr_images_before_rigid']:
         image = nib.load(ROOT / split / folder / (case + '.nii.gz'))
         data = np.asanyarray(image.dataobj)
         assert image.shape[:3] == (128, 128, 128)
         assert np.isfinite(data).all(), (split, case, folder)
         assert np.allclose(image.header.get_zooms()[:3], np.linalg.norm(image.affine[:3, :3], axis=0))
-        if folder in ['mr_labels', 'us_labels']:
+        if folder in ['us_labels', 'mr_labels']:
             assert image.shape[-1] == 6 and set(np.unique(data)).issubset({0, 255})
             saved[folder] = (image, data)
-        if folder == 'mr_images':
+        if folder == 'us_images':
             reference = image
-        elif folder != 'us_images_before_rigid':
+        elif folder != 'mr_images_before_rigid':
             assert np.allclose(image.affine, reference.affine)
-    mr_image, mr_data = saved['mr_labels']
     us_image, us_data = saved['us_labels']
-    dice = registration.dice_binary_np(mr_data[..., 0], us_data[..., 0])
+    mr_image, mr_data = saved['mr_labels']
+    dice = registration.dice_binary_np(us_data[..., 0], mr_data[..., 0])
     assert np.isclose(dice, meta['label0_dice'])
 
-    native = [nib.load(SOURCE / split / (mod + '_labels') / (case + '.nii.gz')) for mod in ['us', 'mr']]
+    native = [nib.load(SOURCE / split / (mod + '_labels') / (case + '.nii.gz')) for mod in ['mr', 'us']]
     arrays = [np.asanyarray(image.dataobj) for image in native]
     expected_channels = {c for c in range(6) if all(np.any(a[..., c]) for a in arrays)}
-    actual_channels = {c for c in range(6) if np.any(mr_data[..., c]) and np.any(us_data[..., c])}
+    actual_channels = {c for c in range(6) if np.any(us_data[..., c]) and np.any(mr_data[..., c])}
     assert actual_channels == expected_channels, (split, case, 'valid paired label channels changed', expected_channels, actual_channels)
     affines = [registration.affine_fix_spacing(image.affine, image.header.get_zooms()[:3]) for image in native]
     before, after, saved_errors = [], [], []
@@ -74,16 +75,16 @@ def evaluate_case(split, meta):
                   for data, affine in zip(arrays, affines)]
         before.append(float(np.linalg.norm((points[0] - points[1])[:3])))
         after.append(float(np.linalg.norm((T @ points[0] - points[1])[:3])))
-        if np.any(mr_data[..., c]) and np.any(us_data[..., c]):
-            a = mr_image.affine @ np.r_[center_of_mass(mr_data[..., c] > 0), 1]
-            b = us_image.affine @ np.r_[center_of_mass(us_data[..., c] > 0), 1]
+        if np.any(us_data[..., c]) and np.any(mr_data[..., c]):
+            a = us_image.affine @ np.r_[center_of_mass(us_data[..., c] > 0), 1]
+            b = mr_image.affine @ np.r_[center_of_mass(mr_data[..., c] > 0), 1]
             saved_errors.append(float(np.linalg.norm((a - b)[:3])))
     saved_channels = {}
     for c in range(6):
         error = None
-        if np.any(mr_data[..., c]) and np.any(us_data[..., c]):
-            a = mr_image.affine @ np.r_[center_of_mass(mr_data[..., c] > 0), 1]
-            b = us_image.affine @ np.r_[center_of_mass(us_data[..., c] > 0), 1]
+        if np.any(us_data[..., c]) and np.any(mr_data[..., c]):
+            a = us_image.affine @ np.r_[center_of_mass(us_data[..., c] > 0), 1]
+            b = mr_image.affine @ np.r_[center_of_mass(mr_data[..., c] > 0), 1]
             error = float(np.linalg.norm((a - b)[:3]))
         saved_channels[f'tre_saved_channel_{c}'] = error
     return {'subset': split, 'case': case, 'dice_ch0': dice, 'rotation_degrees': angle,
@@ -103,6 +104,8 @@ def main():
     args = parser.parse_args()
     ROOT, SOURCE = args.out_dir.resolve(), args.data_root.resolve()
     run_config = json.loads((ROOT / 'run_config.json').read_text(encoding='utf-8'))
+    if run_config.get('registration_direction') != 'MR_to_US':
+        raise ValueError('Expected an MR-to-US run from version 0.3.0 or later')
     registration.configure_rotation_limit(run_config['max_rotation_degrees'])
     registration.ICP_MAX_ROT_DEG = registration.registration_parameters()['max_rot_deg']
     summaries, rows, rejected = {}, [], []
@@ -113,7 +116,7 @@ def main():
         accepted = [m for m in all_meta if m['accepted']]
         assert len(accepted) == summary['num_accepted']
         expected = {m['case'] + '.nii.gz' for m in accepted}
-        for folder in ['mr_images', 'us_images', 'mr_labels', 'us_labels', 'mr_labels_maps', 'us_labels_maps', 'us_images_before_rigid']:
+        for folder in ['mr_images', 'us_images', 'mr_labels', 'us_labels', 'mr_labels_maps', 'us_labels_maps', 'mr_images_before_rigid']:
             assert {p.name for p in (ROOT / split / folder).glob('*.nii.gz')} == expected
         for meta in all_meta:
             if meta['accepted']:
@@ -137,7 +140,7 @@ def main():
         print(split, format_tre_values(summaries[split], as_text=True), flush=True)
     config_path = ROOT / 'run_config.json'
     config = json.loads(config_path.read_text(encoding='utf-8')) if config_path.exists() else {}
-    report = {'verification': 'passed', 'tre_definition': 'Channels 1-5 original mask centroids; forward transform; mean within each case, then across cases',
+    report = {'verification': 'passed', 'registration_direction': 'MR_to_US', 'output_reference': 'US', 'tre_definition': 'Channels 1-5 original mask centroids; forward transform; mean within each case, then across cases',
               'saved_pooled_tre_definition': 'Pool all nonempty matching channel 0-5 centroid distances from saved/resampled labels across cases; label0 also participates in registration',
               'tuning_dataset': config.get('registration_parameters', {}).get('tuning_dataset'),
               'distance_units': 'Header-spacing-corrected world units; NIfTI unit is unknown',

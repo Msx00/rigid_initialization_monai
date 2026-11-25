@@ -3,7 +3,7 @@
 Upstream: https://github.com/dalbenzioG/Initial_Registration
 The PCA frames, mesh extraction and ICP are actual upstream calls. Axis-order
 disambiguation and rotation damping are adapter additions, not vanilla PCA.
-The packaged default profile was selected on train + validation; see docs/METHOD.md for development provenance.
+The numeric defaults were selected on train + validation for historical US-to-MR fits; see docs/METHOD.md for development provenance.
 """
 from dataclasses import asdict
 import itertools
@@ -21,7 +21,7 @@ _SETTINGS = {'smoothing': 0, 'landmarks': 7000, 'iterations': 30, 'pca_rotation_
 
 
 _MAX_ROTATION_DEGREES = 30.0
-_SELECTION_DATASET = 'train_val'
+_SELECTION_DATASET = 'unspecified'
 
 
 def configure_selection_dataset(dataset):
@@ -142,7 +142,7 @@ def register_meshes(source, target):
                    'eigenvalues': frame.eigenvalues.tolist(),
                    'eigenvectors_columns': frame.eigenvectors.tolist(),
                    'basis_determinant': float(np.linalg.det(frame.eigenvectors))}
-            for name, frame in [('moving_us', moving), ('fixed_mr', fixed)]
+            for name, frame in [('moving', moving), ('fixed', fixed)]
         },
         'initial_matrix': initial.tolist(), 'icp_matrix': refined.matrix4x4.tolist(),
         'T_mv2fx_4x4': matrix.tolist(), 'rot_angle_deg': final_angle,

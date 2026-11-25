@@ -1,6 +1,7 @@
 # Rigid Initialization for MONAI: MuReg and TCIA
 
-One repository for two prostate MR-US rigid registration workflows. Each workflow
+One repository for two prostate **MR-to-US** rigid registration workflows.
+**MR is moving; US is fixed in both workflows.** Each workflow
 keeps its own input format, geometry, parameters and evaluation definitions.
 Both use mesh-based registration built on
 [dalbenzioG/Initial_Registration](https://github.com/dalbenzioG/Initial_Registration),
@@ -11,9 +12,9 @@ with adapted PCA initialization and the original rigid ICP routines.
 | | MuReg | TCIA Prostate-MRI-US-Biopsy |
 | --- | --- | --- |
 | Command | `mureg-rigid` | `tcia-rigid` |
-| Moving -> fixed | **US -> MR** | **MR -> US** |
+| Moving -> fixed | **MR -> US** | **MR -> US** |
 | Inputs | Matched NIfTI images and six-channel labels | CSV pairs manifest; native MR/US images and binary gland masks; optional Target masks |
-| Output grid | Preprocessed MR grid, 128 x 128 x 128 | US-gland-centred, 175 x 175 x 175 at 0.8 mm isotropic |
+| Output grid | Preprocessed US grid, 128 x 128 x 128 | US-gland-centred, 175 x 175 x 175 at 0.8 mm isotropic |
 | Default PCA gain | 0.10 | 0 (centroid initialization) |
 | Default ICP sampling / iterations | 7000 / 30 | 4000 / 150 |
 | Smoothing / mesh reduction | 0 / 20% | 0 / 20% |
@@ -66,12 +67,14 @@ mureg-rigid-metrics --out-dir /path/to/new_output --subset test
 ```
 
 Request only splits present in your input. Output must be new or empty. Use
-`mr_images` as fixed and the already initialized `us_images` as moving for the
-next registration stage. A JSON fitting profile is in [configs/best.json](configs/best.json).
+`us_images` as fixed and the already initialized `mr_images` as moving for the
+next registration stage. A JSON fitting profile is in [configs/best.json](configs/best.json). Its numeric
+defaults were selected for the historical US-to-MR direction and have not been
+reoptimized for MR-to-US; previous accuracy results do not validate this direction.
 For a pair of standalone binary masks:
 
 ```bash
-mureg-rigid-masks --moving-mask us_mask.nii.gz --fixed-mask mr_mask.nii.gz --out-transform us_to_mr.json
+mureg-rigid-masks --moving-mask mr_mask.nii.gz --fixed-mask us_mask.nii.gz --out-transform mr_to_us.json
 ```
 
 Full options, input/output layout, coordinate conventions and provenance:
@@ -110,7 +113,10 @@ and [reference experiments](docs/tcia/EXPERIMENTS.md).
 
 ## Commands and Configuration
 
-Existing MuReg commands remain compatible. `tcia-rigid` adds the `pair`, `batch`,
+Version 0.3.0 changes MuReg fitting and resampling from US-to-MR to MR-to-US.
+CLI names and input layouts are retained, but outputs and matrix roles change.
+Regenerate outputs in a new directory; do not relabel earlier datasets.
+See [direction migration](docs/MR_TO_US_MIGRATION.md). `tcia-rigid` adds the `pair`, `batch`,
 `convert`, `prepare`, `split` and `demo` subcommands. All support `--help`.
 CLI flags override each workflow's own JSON configuration:
 
@@ -152,4 +158,5 @@ not the unmodified upstream end-to-end pipeline. See [NOTICE](NOTICE),
 Obtain TCIA research data under the collection's own terms; the code license
 does not grant rights to redistribute those data.
 
-Release checks: [combined 0.2.0 validation](docs/INTEGRATION_VALIDATION.md).
+Release checks: [MR-to-US 0.3.0](docs/MR_TO_US_MIGRATION.md) and
+[historical combined 0.2.0 validation](docs/INTEGRATION_VALIDATION.md).

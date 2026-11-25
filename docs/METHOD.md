@@ -7,7 +7,7 @@ The vendored `pca_icp` files come from Initial_Registration commit
 are unmodified; hashes are recorded in `UPSTREAM.json`. Cite and acknowledge
 [the original repository](https://github.com/dalbenzioG/Initial_Registration).
 
-Batch fitting extracts channel0, calls the author's marching-cubes mesh loader,
+From version 0.3.0, batch fitting moves MR onto fixed US. It extracts channel0, calls the author's marching-cubes mesh loader,
 optional windowed-sinc smoothing and topology-preserving decimation, and uses
 the original `compute_pca_frame` to obtain mesh-centroid PCA frames. Each frame's
 columns are its principal axes, sorted by descending eigenvalue and corrected
@@ -43,7 +43,10 @@ alone do not make a transformation invalid.
 ## Default profile and development
 
 The default gain0.10/smoothing0/points7000/iterations30/reduction0.20 profile
-and 30-degree gate were selected using 65 training and 8 validation cases.
+and 30-degree gate were selected for historical **US-to-MR** fits using
+65 training and 8 validation cases. Version 0.3.0 retains those numeric defaults
+as a starting profile for **MR-to-US**, without reoptimization for this direction.
+Historical accuracy metrics do not establish MR-to-US accuracy.
 The objective was minimum pooled saved labels1–5 centroid TRE, requiring all
 cases to pass and valid paired labels to remain present. Thus labels1–5
 participated in cohort-level parameter selection, although not individual fits.

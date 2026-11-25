@@ -22,13 +22,13 @@ to 128³. This is not a foreground-centroid crop. The affine is updated for that
 change in voxel spacing, and distant labels may fall outside the crop.
 Verification explicitly checks that valid paired label channels survive.
 Intensity normalization is per image, before resampling. The final fixed grid
-is the preprocessed MR grid. US image interpolation is linear; label
+is the preprocessed US grid. MR image interpolation is linear; label
 interpolation is nearest-neighbour.
 
-Forward transform direction is US world → MR world. Resampling uses the inverse
-mapping from fixed-grid output voxels into the moving image. Accepted `us_images`
-and `us_labels` have already had that rigid transform applied. The stored
-inverse transform supports MR world → US world. Neither matrix directly maps
+Forward transform direction is MR world → US world (`T_mr2us_4x4`). Resampling uses the inverse
+mapping from fixed-grid output voxels into the moving image. Accepted `mr_images`
+and `mr_labels` have already had that rigid transform applied. The stored
+inverse `T_us2mr_4x4` supports US world → MR world. Neither matrix directly maps
 voxel indices unless composed with the appropriate affines.
 
 Output image arrays are XYZ1 float32, normalized approximately to [0,1].
@@ -43,3 +43,6 @@ mask, honours its provided affine directly, and does not apply MuReg-specific
 spacing correction, 128³ crop or image normalization. Use this mode for mask
 pairs already prepared in their intended world coordinates.
 
+
+Version 0.3.0 changes the MuReg direction and fixed grid. Historical US-to-MR
+outputs must be evaluated with their matching release. See [migration notes](MR_TO_US_MIGRATION.md).

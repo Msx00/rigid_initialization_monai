@@ -3,7 +3,7 @@
 
 """MuReg NIfTI adapter for the author's pca_icp registration implementation.
 
-US channel-0 mask -> regularized author PCA frames -> author rigid ICP -> MR grid.
+MR channel-0 mask -> regularized author PCA frames -> author rigid ICP -> US grid.
 Configurable final rotation acceptance (default 30 degrees); per-case fitting uses only channel0.
 See docs/METHOD.md for attribution, preprocessing and test-set tuning disclosure.
 """
@@ -38,7 +38,7 @@ LABEL_CH = 0
 # Save options
 SAVE_LABEL_6CH_255 = True
 SAVE_LABEL_MAP = True
-SAVE_US_BEFORE_RIGID = True              
+SAVE_MR_BEFORE_RIGID = True
 
 
 # =========================
@@ -382,8 +382,8 @@ def prepare_output_dirs(out_dir: str, subset: str):
         "us_labels_maps",
         "meta",
     ]
-    if SAVE_US_BEFORE_RIGID:
-        subs.append("us_images_before_rigid")
+    if SAVE_MR_BEFORE_RIGID:
+        subs.append("mr_images_before_rigid")
     for s in subs:
         ensure_dir(os.path.join(out_dir, subset, s))
 
@@ -494,21 +494,21 @@ def process_subset(subset: str):
             # Persist the exact 3D 0/1 masks passed to the author's NIfTI API.
             mask_dir = Path(OUT_DIR) / subset / "registration_masks"
             mask_dir.mkdir(parents=True, exist_ok=True)
-            source_mask = mask_dir / f"{base}_US.nii.gz"
-            target_mask = mask_dir / f"{base}_MR.nii.gz"
+            source_mask = mask_dir / f"{base}_MR.nii.gz"
+            target_mask = mask_dir / f"{base}_US.nii.gz"
             for mask, affine, header, path in [
-                (us_onehot_pc[LABEL_CH], A_us_pc, hdr_usseg, source_mask),
-                (mr_onehot_pc[LABEL_CH], A_mr_pc, hdr_mrseg, target_mask),
+                (mr_onehot_pc[LABEL_CH], A_mr_pc, hdr_mrseg, source_mask),
+                (us_onehot_pc[LABEL_CH], A_us_pc, hdr_usseg, target_mask),
             ]:
                 if not np.any(mask > 0.5):
                     raise ValueError("Channel-0 mask is empty after preprocessing")
                 save_nifti((mask > 0.5).astype(np.uint8), affine, header, str(path), np.uint8)
             icp_result = register_masks(source_mask, target_mask)
-            T_us2mr = np.asarray(icp_result["T_mv2fx"], dtype=np.float64)
+            T_mr2us = np.asarray(icp_result["T_mv2fx"], dtype=np.float64)
             # Evaluation happens AFTER transform selection and cannot affect acceptance.
             icp_result["best_dice"] = compute_label0_dice_after_transform_np(
-                us_onehot_pc, mr_onehot_pc, A_us_pc, A_mr_pc,
-                T_us2mr, TARGET_SHAPE, LABEL_CH,
+                mr_onehot_pc, us_onehot_pc, A_mr_pc, A_us_pc,
+                T_mr2us, TARGET_SHAPE, LABEL_CH,
             )
 
             if not icp_result["accepted"]:
@@ -522,20 +522,21 @@ def process_subset(subset: str):
                     "case": base,
                     "accepted": False,
                     "failure_reason": icp_result["failure_reason"],
-                    "rigid_reference": "mr_fixed",
-                    "moving": "US/TRUS",
-                    "fixed": "MR",
+                    "rigid_reference": "us_fixed",
+                "registration_direction": "MR_to_US",
+                    "moving": "MR",
+                    "fixed": "US",
                     "target_shape": list(TARGET_SHAPE),
                     "force_ras": bool(FORCE_RAS),
-                    "mr_pad_before": mr_pb.tolist(),
-                    "mr_crop_start": mr_cs.tolist(),
                     "us_pad_before": us_pb.tolist(),
                     "us_crop_start": us_cs.tolist(),
+                    "mr_pad_before": mr_pb.tolist(),
+                    "mr_crop_start": mr_cs.tolist(),
                     "best_attempt": icp_result["best_attempt"],
                     "best_dice": icp_result["best_dice"],
                     "best_rot_angle_deg": icp_result["best_rot_angle_deg"],
-                    "best_T_us2mr_4x4": T_us2mr.tolist(),
-                    "best_T_mr2us_4x4": invert_T(T_us2mr).tolist(),
+                    "best_T_mr2us_4x4": T_mr2us.tolist(),
+                    "best_T_us2mr_4x4": invert_T(T_mr2us).tolist(),
                     "attempts": icp_result["attempts"],
                     "registration_backend": icp_result["backend"],
                     "mesh_points": icp_result["mesh_points"],
@@ -557,108 +558,108 @@ def process_subset(subset: str):
                   f"Dice={icp_result['best_dice']:.4f}")
 
             # =========================
-            # Save fixed MR on MR grid
+            # Save fixed US on US grid
             # =========================
-            mr_img_4d = mr_img_pc[..., None]
+            us_img_4d = us_img_pc[..., None]
             save_nifti(
-                mr_img_4d.astype(np.float32, copy=False),
-                A_mr_pc,
-                hdr_mr,
-                os.path.join(OUT_DIR, subset, "mr_images", f"{base}.nii.gz"),
+                us_img_4d.astype(np.float32, copy=False),
+                A_us_pc,
+                hdr_us,
+                os.path.join(OUT_DIR, subset, "us_images", f"{base}.nii.gz"),
                 dtype=np.float32,
             )
 
             if SAVE_LABEL_6CH_255:
-                mr_6ch_255 = (np.transpose(mr_onehot_pc, (1, 2, 3, 0)) * 255.0).astype(np.uint8)
+                us_6ch_255 = (np.transpose(us_onehot_pc, (1, 2, 3, 0)) * 255.0).astype(np.uint8)
                 save_nifti(
-                    mr_6ch_255,
-                    A_mr_pc,
-                    hdr_mrseg,
-                    os.path.join(OUT_DIR, subset, "mr_labels", f"{base}.nii.gz"),
+                    us_6ch_255,
+                    A_us_pc,
+                    hdr_usseg,
+                    os.path.join(OUT_DIR, subset, "us_labels", f"{base}.nii.gz"),
                     dtype=np.uint8,
                 )
 
             if SAVE_LABEL_MAP:
-                mr_lab = onehot_to_label(mr_onehot_pc)
+                us_lab = onehot_to_label(us_onehot_pc)
                 save_nifti(
-                    mr_lab,
-                    A_mr_pc,
-                    hdr_mrseg,
-                    os.path.join(OUT_DIR, subset, "mr_labels_maps", f"{base}.nii.gz"),
+                    us_lab,
+                    A_us_pc,
+                    hdr_usseg,
+                    os.path.join(OUT_DIR, subset, "us_labels_maps", f"{base}.nii.gz"),
                     dtype=np.uint8,
                 )
 
-            # Optional: save US before rigid for debugging only.
-            if SAVE_US_BEFORE_RIGID:
-                us_img_before_4d = us_img_pc[..., None]
+            # Optional: save MR before rigid for debugging only.
+            if SAVE_MR_BEFORE_RIGID:
+                mr_img_before_4d = mr_img_pc[..., None]
                 save_nifti(
-                    us_img_before_4d.astype(np.float32, copy=False),
-                    A_us_pc,
-                    hdr_us,
-                    os.path.join(OUT_DIR, subset, "us_images_before_rigid", f"{base}.nii.gz"),
+                    mr_img_before_4d.astype(np.float32, copy=False),
+                    A_mr_pc,
+                    hdr_mr,
+                    os.path.join(OUT_DIR, subset, "mr_images_before_rigid", f"{base}.nii.gz"),
                     dtype=np.float32,
                 )
 
             # =========================
-            # Resample US/TRUS image to MR grid
+            # Resample MR image to US grid
             # =========================
-            us_img_pc_4d = us_img_pc[..., None]
-            us_rigid_4d = rigid_resample_to_fixed(
-                mv_data=us_img_pc_4d,
-                A_mv=A_us_pc,
-                A_fx=A_mr_pc,
-                T_mv2fx=T_us2mr,
+            mr_img_pc_4d = mr_img_pc[..., None]
+            mr_rigid_4d = rigid_resample_to_fixed(
+                mv_data=mr_img_pc_4d,
+                A_mv=A_mr_pc,
+                A_fx=A_us_pc,
+                T_mv2fx=T_mr2us,
                 out_shape=TARGET_SHAPE,
                 order=1,
                 cval=0.0,
             )
 
             save_nifti(
-                us_rigid_4d.astype(np.float32, copy=False),
-                A_mr_pc,
-                hdr_mr,
-                os.path.join(OUT_DIR, subset, "us_images", f"{base}.nii.gz"),
+                mr_rigid_4d.astype(np.float32, copy=False),
+                A_us_pc,
+                hdr_us,
+                os.path.join(OUT_DIR, subset, "mr_images", f"{base}.nii.gz"),
                 dtype=np.float32,
             )
 
-            # Resample US/TRUS labels to MR grid.
+            # Resample MR labels to US grid.
             if SAVE_LABEL_6CH_255:
-                us_6ch_255 = (np.transpose(us_onehot_pc, (1, 2, 3, 0)) * 255.0).astype(np.uint8)
-                us_6ch_rigid = rigid_resample_to_fixed(
-                    mv_data=us_6ch_255,
-                    A_mv=A_us_pc,
-                    A_fx=A_mr_pc,
-                    T_mv2fx=T_us2mr,
+                mr_6ch_255 = (np.transpose(mr_onehot_pc, (1, 2, 3, 0)) * 255.0).astype(np.uint8)
+                mr_6ch_rigid = rigid_resample_to_fixed(
+                    mv_data=mr_6ch_255,
+                    A_mv=A_mr_pc,
+                    A_fx=A_us_pc,
+                    T_mv2fx=T_mr2us,
                     out_shape=TARGET_SHAPE,
                     order=0,
                     cval=0,
                 ).astype(np.uint8, copy=False)
 
                 save_nifti(
-                    us_6ch_rigid,
-                    A_mr_pc,
-                    hdr_mrseg,
-                    os.path.join(OUT_DIR, subset, "us_labels", f"{base}.nii.gz"),
+                    mr_6ch_rigid,
+                    A_us_pc,
+                    hdr_usseg,
+                    os.path.join(OUT_DIR, subset, "mr_labels", f"{base}.nii.gz"),
                     dtype=np.uint8,
                 )
 
                 if SAVE_LABEL_MAP:
-                    us_lab_rigid = np.argmax((us_6ch_rigid > 127).astype(np.uint8), axis=3).astype(np.uint8)
+                    mr_lab_rigid = np.argmax((mr_6ch_rigid > 127).astype(np.uint8), axis=3).astype(np.uint8)
                     save_nifti(
-                        us_lab_rigid,
-                        A_mr_pc,
-                        hdr_mrseg,
-                        os.path.join(OUT_DIR, subset, "us_labels_maps", f"{base}.nii.gz"),
+                        mr_lab_rigid,
+                        A_us_pc,
+                        hdr_usseg,
+                        os.path.join(OUT_DIR, subset, "mr_labels_maps", f"{base}.nii.gz"),
                         dtype=np.uint8,
                     )
 
             # Recompute final label0 Dice from saved-style transform for metadata.
             final_label0_dice = compute_label0_dice_after_transform_np(
-                moving_onehot_pc=us_onehot_pc,
-                fixed_onehot_pc=mr_onehot_pc,
-                A_mv_pc=A_us_pc,
-                A_fx_pc=A_mr_pc,
-                T_mv2fx=T_us2mr,
+                moving_onehot_pc=mr_onehot_pc,
+                fixed_onehot_pc=us_onehot_pc,
+                A_mv_pc=A_mr_pc,
+                A_fx_pc=A_us_pc,
+                T_mv2fx=T_mr2us,
                 target_shape=TARGET_SHAPE,
                 label_ch=LABEL_CH,
             )
@@ -668,17 +669,18 @@ def process_subset(subset: str):
                 "accepted": True,
                 "target_shape": list(TARGET_SHAPE),
                 "force_ras": bool(FORCE_RAS),
-                "rigid_reference": "mr_fixed",
-                "moving": "US/TRUS",
-                "fixed": "MR",
-                "mr_pad_before": mr_pb.tolist(),
-                "mr_crop_start": mr_cs.tolist(),
+                "rigid_reference": "us_fixed",
+                "registration_direction": "MR_to_US",
+                "moving": "MR",
+                "fixed": "US",
                 "us_pad_before": us_pb.tolist(),
                 "us_crop_start": us_cs.tolist(),
-                # Main transform: x_mr = T_us2mr * x_us
-                "T_us2mr_4x4": T_us2mr.tolist(),
-                # Inverse for convenience: x_us = T_mr2us * x_mr
-                "T_mr2us_4x4": invert_T(T_us2mr).tolist(),
+                "mr_pad_before": mr_pb.tolist(),
+                "mr_crop_start": mr_cs.tolist(),
+                # Main transform: x_us = T_mr2us * x_mr
+                "T_mr2us_4x4": T_mr2us.tolist(),
+                # Inverse for convenience: x_mr = T_us2mr * x_us
+                "T_us2mr_4x4": invert_T(T_mr2us).tolist(),
                 "label0_dice": float(final_label0_dice),
                 "best_dice": icp_result["best_dice"],
                 "rot_angle_deg": icp_result["best_rot_angle_deg"],
@@ -688,7 +690,7 @@ def process_subset(subset: str):
                 "mesh_points": icp_result["mesh_points"],
                 "icp_params": registration_parameters(),
                 "label_channel_used": int(LABEL_CH),
-                "note": f"Author pca_icp mesh registration, rigid US-to-MR. Rotation <={ICP_MAX_ROT_DEG} degrees; Dice is evaluation-only.",
+                "note": f"Author pca_icp mesh registration, rigid MR-to-US. Rotation <={ICP_MAX_ROT_DEG} degrees; Dice is evaluation-only.",
             }
             with open(
                 os.path.join(OUT_DIR, subset, "meta", f"{base}.json"),
@@ -699,7 +701,7 @@ def process_subset(subset: str):
 
             all_meta.append(meta)
             accepted_count += 1
-            print(f"[OK] saved fixed MR and rigid US/TRUS to: {os.path.join(OUT_DIR, subset)}")
+            print(f"[OK] saved fixed US and rigid MR to: {os.path.join(OUT_DIR, subset)}")
 
         except Exception as e:
             skipped_count += 1
@@ -708,9 +710,10 @@ def process_subset(subset: str):
                 "case": base,
                 "accepted": False,
                 "failure_reason": "exception",
+                "registration_direction": "MR_to_US",
                 "exception": repr(e),
-                "moving": "US/TRUS",
-                "fixed": "MR",
+                "moving": "MR",
+                "fixed": "US",
             }
             ensure_dir(os.path.join(OUT_DIR, subset, "meta"))
             with open(
@@ -750,7 +753,7 @@ def main():
     parser.add_argument("--subsets", nargs="+", choices=["train", "val", "test"], default=SUBSETS)
     parser.add_argument("--registration-config", type=Path, help="JSON fitting settings; omitted fields keep the packaged defaults. Explicit flags override JSON.")
     parser.add_argument('--max-rotation-degrees', type=float, default=30.0, help='Final rotation acceptance limit; does not constrain ICP optimization (default 30).')
-    parser.add_argument('--selection-dataset', choices=['unspecified','train','val','train_val','test'], default='train_val', help='Origin of this parameter profile (metadata only); default train_val.')
+    parser.add_argument('--selection-dataset', choices=['unspecified','train','val','train_val','test'], default='unspecified', help='Selection cohort for this direction (metadata only); default unspecified; numeric defaults were selected for historical US-to-MR fits.')
     parser.add_argument('--pca-rotation-gain', type=float, help='Initial rotation-vector gain, 0 to 1; default 0.10')
     parser.add_argument('--smoothing', type=int, help='Mesh smoothing iterations; default 0')
     parser.add_argument('--landmarks', type=int, help='Maximum ICP sampling points; default 7000')
@@ -797,6 +800,10 @@ def main():
         "data_root": DATA_ROOT, "out_dir": OUT_DIR, "subsets": SUBSETS,
         "max_rotation_degrees": ICP_MAX_ROT_DEG, "acceptance": "rotation_only",
         "method": registration_parameters()["method"], "label_channel": LABEL_CH,
+        "registration_direction": "MR_to_US", "moving": "MR", "fixed": "US",
+        "output_reference": "US",
+        "default_profile_provenance": {"selection_direction": "US_to_MR",
+            "selection_dataset": "train_val", "reoptimized_for_MR_to_US": False},
         "upstream_repository": "https://github.com/dalbenzioG/Initial_Registration",
         "upstream_base_commit": "21ee6ceb50bdb1e8d14072cb54ebb1bd2c611029",
         "registration_parameters": registration_parameters(),
