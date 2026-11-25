@@ -1,4 +1,4 @@
-# Rigid Initialization for MONAI: MuReg and TCIA
+# Rigid initialization for prostate: MuReg and TCIA
 
 One repository for two prostate **MR-to-US** rigid registration workflows.
 **MR is moving; US is fixed in both workflows.** Each workflow
