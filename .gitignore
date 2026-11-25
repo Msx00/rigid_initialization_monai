@@ -18,3 +18,14 @@ outputs/
 rigid_output/
 *.log
 
+
+# TCIA medical images, segmentations and raw metadata
+*.nrrd
+*.nhdr
+*.mha
+*.mhd
+*.dcm
+*.DCM
+*.stl
+*.STL
+*.xlsx

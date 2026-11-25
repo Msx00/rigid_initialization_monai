@@ -1,0 +1,11 @@
+{
+  "pca_rotation_gain": 0.0,
+  "smoothing": 0,
+  "landmarks": 4000,
+  "iterations": 150,
+  "decimation_reduction": 0.2,
+  "size": [175, 175, 175],
+  "spacing_mm": [0.8, 0.8, 0.8],
+  "rotation_warning_degrees": 30.0,
+  "threads": 1
+}

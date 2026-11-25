@@ -1,4 +1,6 @@
-# Release validation
+> Historical MuReg-only checks. The combined 0.2.0 validation is recorded separately.
+
+# MuReg 0.1.0 release validation
 
 Version 0.1.0 was built as a wheel and installed into an isolated target directory
 using Python 3.12 on Windows. Dependencies matched `requirements-tested.txt`.

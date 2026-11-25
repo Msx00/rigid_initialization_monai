@@ -1,0 +1,15 @@
+{
+  "repository": "https://github.com/dalbenzioG/Initial_Registration",
+  "commit": "21ee6ceb50bdb1e8d14072cb54ebb1bd2c611029",
+  "license": "Apache-2.0",
+  "files_sha256": {
+    "pca_icp/types.py": "c1c2d8b5163977422aa6900c08502a4207e8bc14af6b2500b9753755f698cd56",
+    "pca_icp/io_vtk.py": "795e44b43f9e6494f6d8c3128aee23151b0ba59305e8eedfb97e510890a4d35e",
+    "pca_icp/pca_init.py": "06757576690e5439730af4d015e4e2eaf2a6551258beb6ac85d5b6b7e67cd181",
+    "pca_icp/preprocess.py": "cb2e25672e85cf873349c88a4fd1a3d7404cbb6e694674a02109dea05bed706a",
+    "pca_icp/transforms.py": "244cc70973efd88daf5dd4389ad7f316038fcd6687292d3d9775d12958c6a222",
+    "pca_icp/icp.py": "63abb8dedec696f9a4c96cab86b075438fd7ee38d938757de13fb55364860cf3"
+  },
+  "changes": "The six listed primitive modules are byte-for-byte copies. The package initializer is replaced with a docstring; dataset and upstream full pipeline are not distributed. TCIA geometry, regularized PCA selection, resampling, verification and interfaces are adaptations.",
+  "vendored_package_path": "src/tcia_prostate_rigid/_vendor"
+}

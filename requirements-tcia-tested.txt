@@ -1,0 +1,9 @@
+# Local reference: Linux, Python 3.11. pyproject.toml contains broader constraints.
+numpy==2.4.6
+scipy==1.17.0
+SimpleITK==2.5.5
+nibabel==5.4.2
+vtk==9.6.0
+scikit-image==0.26.0
+filelock==3.20.0
+pydicom==3.0.1

@@ -1,274 +1,155 @@
-# MuReg PCA + ICP Rigid Registration
+# Rigid Initialization for MONAI: MuReg and TCIA
 
-Rigid initialization of prostate MR–US pairs for subsequent deformable registration.
-**US is moving; MR is fixed.**
-
-This project adapts the PCA + ICP workflow from
+One repository for two prostate MR-US rigid registration workflows. Each workflow
+keeps its own input format, geometry, parameters and evaluation definitions.
+Both use mesh-based registration built on
 [dalbenzioG/Initial_Registration](https://github.com/dalbenzioG/Initial_Registration),
-using its original mesh-processing, PCA-frame computation and rigid-ICP functions.
-The adaptation adds MuReg data handling, modified PCA initialization and rotation
-damping. The differences are described below and in [METHOD.md](docs/METHOD.md).
+with adapted PCA initialization and the original rigid ICP routines.
 
-## Choose a Mode
+## Choose a Workflow
 
-| Your input | Command | Result |
+| | MuReg | TCIA Prostate-MRI-US-Biopsy |
 | --- | --- | --- |
-| MR/US images and six-channel MuReg labels | `mureg-rigid` | Aligned NIfTI images, labels and per-case transforms |
-| A pair of 3D binary masks | `mureg-rigid-masks` | Forward/inverse transforms and diagnostics in JSON |
-| Existing batch outputs | `mureg-rigid-verify` | File, grid, transformation and label-preservation checks |
-| Complete batch outputs | `mureg-rigid-metrics` | Per-case and aggregate TRE, Chamfer, Dice and HD95 |
+| Command | `mureg-rigid` | `tcia-rigid` |
+| Moving -> fixed | **US -> MR** | **MR -> US** |
+| Inputs | Matched NIfTI images and six-channel labels | CSV pairs manifest; native MR/US images and binary gland masks; optional Target masks |
+| Output grid | Preprocessed MR grid, 128 x 128 x 128 | US-gland-centred, 175 x 175 x 175 at 0.8 mm isotropic |
+| Default PCA gain | 0.10 | 0 (centroid initialization) |
+| Default ICP sampling / iterations | 7000 / 30 | 4000 / 150 |
+| Smoothing / mesh reduction | 0 / 20% | 0 / 20% |
+| Rotation above 30 degrees | Case rejected | Case retained with a review flag |
+| Distances | Corrected affine world units; mm not established for development data | Physical millimetres with validated image geometry |
+| Guide | [MuReg](docs/MUREG.md) | [TCIA](docs/TCIA.md) / [Chinese](docs/TCIA.zh-CN.md) |
 
-## Prerequisites and Installation
+Do not swap these workflows' transforms or preprocessing assumptions. MONAI
+itself is not required to produce the outputs; install it in your downstream
+training environment if needed.
 
-Python **3.10+**, with NumPy, SciPy, NiBabel, VTK and scikit-image. Dependencies
-are installed automatically. Execution is CPU-based; no GPU is required.
+## Installation
 
-Download or clone **this repository**, then run from its root:
+Python 3.10 or newer. CPU execution; no GPU required.
 
 ```bash
-python -m pip install .
-```
-
-A dedicated environment is recommended. For example, in Windows PowerShell:
-
-```powershell
+git clone https://github.com/Msx00/rigid_initialization_monai.git
+cd rigid_initialization_monai
 python -m venv .venv
-.venv\Scripts\Activate.ps1
+```
+
+Activate the environment (`.venv\Scripts\Activate.ps1` in Windows PowerShell,
+`source .venv/bin/activate` on Linux/macOS), then install:
+
+```bash
 python -m pip install --upgrade pip
+# MuReg only:
 python -m pip install .
+# Both MuReg and prepared TCIA data:
+python -m pip install ".[tcia]"
+# Also enable original TCIA DICOM/STL preparation:
+python -m pip install ".[tcia,dicom]"
 ```
 
-On Linux/macOS, activate with `source .venv/bin/activate` instead. Use
-`python -m pip install -e .` for development. The local release was tested with
-Python 3.12 on Windows; exact dependency versions are in [requirements-tested.txt](requirements-tested.txt).
+Use `-e` for editable development installs. The two original tested environments
+are recorded separately in [requirements-tested.txt](requirements-tested.txt)
+and [requirements-tcia-tested.txt](requirements-tcia-tested.txt); do not combine
+their exact version pins into one constraints file.
 
-## Quick Start
+## Quick Start: MuReg
 
-### 1. Batch registration
+Input splits contain matching filenames in `mr_images`, `us_images`, `mr_labels`
+and `us_labels`. Images are XYZ or XYZ1; binary labels are XYZ6 (0/1 or 0/255).
+Channel0 is the gland used for fitting; channels1-5 are optional landmark masks.
 
 ```bash
-mureg-rigid --data-root /path/to/dataset --out-dir /path/to/rigid_output --subsets test
+mureg-rigid --data-root /path/to/mureg --out-dir /path/to/new_output --subsets train val test
+mureg-rigid-verify --data-root /path/to/mureg --out-dir /path/to/new_output --subsets train val test
+mureg-rigid-metrics --out-dir /path/to/new_output --subset test
 ```
 
-Windows example:
-
-```powershell
-mureg-rigid --data-root "D:\datasets\mureg" --out-dir "D:\results\rigid_output" --subsets test
-```
-
-Use `--subsets train val test` to process all three splits, or request only the
-splits present in your dataset. The output directory must be **new or empty**.
-`python -m mureg_rigid` is equivalent to `mureg-rigid`.
-
-### 2. Verify outputs and calculate metrics
-
-```bash
-mureg-rigid-verify --data-root /path/to/dataset --out-dir /path/to/rigid_output --subsets test
-mureg-rigid-metrics --out-dir /path/to/rigid_output --subset test
-```
-
-Verification checks accepted outputs and lists rejected cases. Check the
-accepted/total counts before reporting complete-cohort performance. The metrics
-command refuses a split containing rejected cases.
-
-### 3. Register a pair of binary masks
+Request only splits present in your input. Output must be new or empty. Use
+`mr_images` as fixed and the already initialized `us_images` as moving for the
+next registration stage. A JSON fitting profile is in [configs/best.json](configs/best.json).
+For a pair of standalone binary masks:
 
 ```bash
 mureg-rigid-masks --moving-mask us_mask.nii.gz --fixed-mask mr_mask.nii.gz --out-transform us_to_mr.json
 ```
 
-Masks must be nonempty **3D binary NIfTI files**, encoded as 0/1 or 0/255. This
-mode honours the supplied affines directly, without the batch mode's MuReg
-spacing correction, 128³ crop or intensity normalization. It writes transforms
-and diagnostics, not aligned NIfTI volumes. Choose a new output JSON file.
+Full options, input/output layout, coordinate conventions and provenance:
+[MuReg guide](docs/MUREG.md).
 
-## Data Layout Expectations
+## Quick Start: TCIA
 
-```text
-dataset/
-├── train/
-│   ├── mr_images/case001.nii.gz
-│   ├── us_images/case001.nii.gz
-│   ├── mr_labels/case001.nii.gz
-│   └── us_labels/case001.nii.gz
-├── val/                       # same four subfolders, if requested
-└── test/                      # same four subfolders, if requested
-```
-
-- Corresponding files must have **identical names** in all four folders.
-- Images: `XYZ` or `XYZ1` NIfTI arrays.
-- Labels: **six-channel `XYZ6` binary masks**, encoded as 0/1 or 0/255.
-- Channel0 is the prostate mask used for fitting; channels1–5 are optional landmark masks.
-- Integer class maps, channel-first arrays and probability maps require conversion.
-- Each image must share its shape and affine with its corresponding labels.
-  MR and US may have different grids.
-
-Batch preprocessing reorients to RAS, applies the historical MuReg spacing
-correction, centre-pads/crops each volume to 128³ and normalizes image intensity
-to [0,1]. The crop is around the **volume centre**, not the prostate centroid.
-This is a dataset-specific preprocessing path. See [DATA_FORMAT.md](docs/DATA_FORMAT.md).
-
-## Main Options
-
-Defaults shared by both registration commands:
-
-| Option | Default | Meaning |
-| --- | ---: | --- |
-| `--pca-rotation-gain` | **0.10** | Fraction of the initial PCA rotation vector to apply, from 0 to 1 |
-| `--decimation-reduction` | **0.20** | Target fraction of the mesh to remove, in [0,1) |
-| `--smoothing` | **0** | Mesh smoothing iterations |
-| `--landmarks` | **7000** | Maximum mesh points sampled by ICP; not anatomical landmark labels |
-| `--iterations` | **30** | Maximum ICP iterations; convergence can occur earlier |
-| `--max-rotation-degrees` | **30** | Acceptance threshold on the final rigid rotation |
-
-There is **no Dice threshold**. The angle gate is applied **after** registration;
-it does not constrain the optimizer. Gain0 removes the PCA initial rotation but
-retains centroid alignment; ICP can still estimate rotation afterwards.
-
-Override settings directly:
+First try the self-contained synthetic example:
 
 ```bash
-mureg-rigid --data-root /path/to/dataset --out-dir /path/to/experiment --subsets test --pca-rotation-gain 0.5 --smoothing 10 --landmarks 5000 --iterations 60 --max-rotation-degrees 45
+tcia-rigid demo --output outputs/tcia_demo
+tcia-rigid batch --monai --pairs outputs/tcia_demo/input/pairs.csv --output outputs/tcia_example
 ```
 
-Or load the included five-field fitting profile with the batch command:
+For converted native data with an existing patient-disjoint split manifest:
 
 ```bash
-mureg-rigid --data-root /path/to/dataset --out-dir /path/to/profile_output --subsets test --registration-config configs/best.json --max-rotation-degrees 30
+tcia-rigid batch --monai --pairs /path/to/pairs.csv --data-root /path/to/prepared_data --output outputs/tcia_registered --workers 8
 ```
 
-Explicit flags override JSON; JSON overrides defaults. The angle gate is a
-separate flag, not a profile JSON field. `--selection-dataset` records a profile's
-parameter-selection origin, not the input split; its default is `train_val`.
-Use `--selection-dataset unspecified` for a custom profile of unknown origin.
-Run any command with `--help` for all options.
+The exporter writes a relative-path `dataset.json` with `training`, `validation`
+and `test`. Records contain explicit `mr_image`, `us_image`, gland/Target label
+and transform paths. MR has already been transformed to the fixed US grid;
+**do not apply its rigid transform again**. The exporter checks geometry,
+patient split separation and case output integrity, supports verified resume,
+and reports failures in `summary.json`.
 
-## Outputs by Mode
+Use `tcia-rigid pair --help` for one pair, `prepare --help` for original TCIA
+DICOM/STL conversion, and `split --help` to generate patient-disjoint splits.
+Original raw conversion requires the `dicom` extra. Preserve an existing split
+manifest when reproducing an experiment instead of creating a new random split.
 
-### Batch NIfTI registration
+See the [TCIA guide](docs/TCIA.md), [CSV schema](docs/tcia/DATA_FORMAT.md),
+[raw conversion](docs/tcia/RAW_TCIA.md), [physical geometry](docs/tcia/GEOMETRY.md)
+and [reference experiments](docs/tcia/EXPERIMENTS.md).
 
-Each requested split contains:
+## Commands and Configuration
 
-| Folder | Contents |
-| --- | --- |
-| `mr_images/` | Fixed MR images |
-| `us_images/` | US images already rigidly resampled to the MR grid |
-| `mr_labels/`, `us_labels/` | Fixed and initialized six-channel labels |
-| `mr_labels_maps/`, `us_labels_maps/` | Derived argmax label maps |
-| `us_images_before_rigid/` | Preprocessed US images before the rigid transform |
-| `registration_masks/` | Exact binary channel0 masks used for fitting |
-| `meta/` | Per-case transforms, PCA axes, diagnostics and acceptance summaries |
+Existing MuReg commands remain compatible. `tcia-rigid` adds the `pair`, `batch`,
+`convert`, `prepare`, `split` and `demo` subcommands. All support `--help`.
+CLI flags override each workflow's own JSON configuration:
 
-The output root also contains `run_config.json`, recording settings and provenance.
-Images are float32 `128×128×128×1`; six-channel labels are uint8
-`128×128×128×6`, foreground255. Derived argmax maps collapse overlaps and cannot
-distinguish channel0 from background; retain six-channel masks for evaluation.
+- MuReg: `--registration-config configs/best.json`; final gate is a separate
+  `--max-rotation-degrees` option.
+- TCIA: `--config configs/tcia.json`; use `--rotation-warning-degrees` for its
+  review flag. Do not pass a MuReg profile to TCIA or vice versa.
 
-Rejected or failed cases retain `*_failed.json` metadata. Exit code **2** means
-at least one case was rejected or failed; inspect `failure_reason` and any
-`exception` in `meta/`.
+The workflows' metrics also differ. MuReg pools saved label-centroid distances;
+TCIA Target TRE averages Targets within pairs, pairs within patients, then
+patients. Do not compare those reported TRE values as if they used one definition.
+The MuReg development history and test-data-use disclosure remain documented in
+[its method guide](docs/METHOD.md).
 
-### Binary-mask registration
+## Development
 
-The specified JSON contains `T_moving_to_fixed`, `T_fixed_to_moving`, acceptance,
-settings and diagnostics. A rejected fit returns exit code2 and retains its
-diagnostic transform. This mode does not export resampled images.
-
-## Transform Conventions
-
-Transforms use homogeneous **column-vector world coordinates**:
-
-```text
-p_MR = T_us2mr @ p_US
-T_us2mr = T_icp @ T_initial
-```
-
-Batch metadata stores `T_us2mr_4x4` and `T_mr2us_4x4`. The mask command uses
-`T_moving_to_fixed` and `T_fixed_to_moving`. These are not voxel-index matrices.
-Resampling uses the inverse map from the fixed grid into the moving image;
-images use linear interpolation, labels use nearest-neighbour.
-
-For subsequent deformable registration, use `mr_images` as fixed and `us_images`
-as the initialized moving input. **Do not apply the stored rigid matrix again**
-to `us_images` or `us_labels`.
-
-## Changes from the Original Workflow
-
-| Component | Original PCA+ICP workflow | This adaptation |
-| --- | --- | --- |
-| PCA-axis correspondence | Fixed axis order; four proper sign candidates | Six axis permutations and sign choices; 24 proper rotations |
-| Candidate selection | Symmetric surface-distance score | Smallest rotation angle |
-| Initial rotation | Full selected PCA rotation | Rotation-vector scaling by the configured gain |
-| ICP starts | Conditional multistart for unstable PCA | One selected initialization |
-| Acceptance | Original workflow's reporting | Final rotation gate; no Dice gate |
-
-The original mesh-processing, PCA-frame and ICP source files are vendored without
-modification in `src/pca_icp/`. Adaptations are in `src/mureg_rigid/`.
-**Gain1 does not reproduce the original end-to-end pipeline**, because candidate
-generation and selection differ. See [METHOD.md](docs/METHOD.md) and the file
-hashes in [UPSTREAM.json](UPSTREAM.json).
-
-## Evaluation and Default-Profile Provenance
-
-The metrics command writes `<split>_four_metrics.json`, including per-case
-`channel_errors` and aggregate measurements:
-
-- **TRE:** corresponding nonempty saved-label centroid distances, pooled across
-  channels0–5 and cases. For labels1–5, pool `channel_errors` excluding key `0`.
-  Label0 also participates in fitting.
-- **Chamfer and HD95:** bidirectional nearest-neighbour distances between
-  channel0 surfaces. Full definitions are in [METHOD.md](docs/METHOD.md).
-- **Dice:** channel0 mask overlap.
-- TRE is pooled by valid channel pair; surface metrics are summarized across
-  cases. Population SD uses `ddof=0`.
-
-The verifier also reports native labels1–5 TRE averaged within cases and then
-across cases; this differs from pooled saved-label TRE. Distance units are affine
-world coordinates. **Millimetres require confirmed spatial units and calibration.**
-
-The default profile was selected on **65 training + 8 validation cases** using
-pooled labels1–5 TRE, requiring all cases and valid paired labels to be retained.
-Earlier development also used test data. These results are not an untouched
-independent-test evaluation. Validate parameter choices on your own data before
-final testing. See [method provenance](docs/METHOD.md).
-
-## Troubleshooting
-
-- **Command not found:** activate the installation environment; for batch mode,
-  try `python -m mureg_rigid --help`.
-- **Missing/unpaired files:** check split names and matching `.nii.gz` filenames.
-- **Unexpected label shape:** batch labels must be `XYZ6`; use the mask command
-  for standalone 3D binary masks.
-- **Empty or lost labels:** inspect the volume-centred crop and run verification.
-- **Rotation threshold not met:** inspect the transform and acceptance limit;
-  changing the gate filters results rather than changing ICP optimization.
-- **VTK import failure:** check your Python environment and local library policy.
-- **Source-file import errors:** install the project and use the documented
-  commands instead of executing individual source files by path.
-
-## Development and Detailed Documentation
+Install the complete test dependencies and run both synthetic suites:
 
 ```bash
+python -m pip install ".[tcia,dicom]"
 python -m unittest discover -s tests -v
 python -m pip wheel . --no-deps --wheel-dir dist
 ```
 
-- [Method and metric definitions](docs/METHOD.md)
-- [Data and coordinate conventions](docs/DATA_FORMAT.md)
-- [Release validation](docs/VALIDATION.md)
-- [GitHub publishing instructions](docs/PUBLISHING.md)
+The supplied TCIA registration modules retain their original implementation in
+`src/tcia_prostate_rigid/`. One Windows-compatible DICOM path comparison was
+adjusted; [TCIA-INTEGRATION.json](TCIA-INTEGRATION.json) records original and
+integrated source hashes and this platform-only change. Its private vendor namespace avoids collisions with MuReg's
+`pca_icp` package. No patient images or case-level experiment files are included. See [combined validation](docs/INTEGRATION_VALIDATION.md).
 
-The source release includes code, configuration, documentation and synthetic tests.
-Clinical NIfTI data and case-level experiment outputs are not included.
+## Attribution and License
 
-## Acknowledgements and License
+Based on Initial_Registration commit
+`21ee6ceb50bdb1e8d14072cb54ebb1bd2c611029`, under **Apache-2.0**. Original authors
+retain their rights. This package modifies initialization/orchestration; it is
+not the unmodified upstream end-to-end pipeline. See [NOTICE](NOTICE),
+[LICENSE](LICENSE), [MuReg upstream hashes](UPSTREAM.json),
+[TCIA upstream hashes](UPSTREAM-TCIA.json) and the per-workflow guides.
+Obtain TCIA research data under the collection's own terms; the code license
+does not grant rights to redistribute those data.
 
-This work builds on **Initial_Registration** by the original repository's authors:
-
-- Repository: https://github.com/dalbenzioG/Initial_Registration
-- Upstream base commit: `21ee6ceb50bdb1e8d14072cb54ebb1bd2c611029`
-- License: **Apache-2.0**; see [LICENSE](LICENSE) and [NOTICE](NOTICE).
-
-Please acknowledge the original repository and describe the adapted initialization
-when using this package in research. Retain the license, notice and attribution
-when redistributing the code.
+Release checks: [combined 0.2.0 validation](docs/INTEGRATION_VALIDATION.md).

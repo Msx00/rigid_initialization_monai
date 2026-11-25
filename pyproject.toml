@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mureg-rigid"
-version = "0.1.0"
-description = "Adapted PCA initialization and rigid ICP for paired MuReg MR-US NIfTI data"
+version = "0.2.0"
+description = "MuReg and TCIA prostate MR-US rigid initialization for MONAI"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
@@ -18,8 +18,13 @@ dependencies = [
   "scikit-image>=0.22",
 ]
 
+[project.optional-dependencies]
+tcia = ["SimpleITK>=2.3", "filelock>=3.13"]
+dicom = ["SimpleITK>=2.3", "filelock>=3.13", "pydicom>=3.0"]
+
 [project.scripts]
 mureg-rigid = "mureg_rigid.run:main"
+tcia-rigid = "mureg_rigid.tcia_cli:main"
 mureg-rigid-masks = "mureg_rigid.masks:main"
 mureg-rigid-verify = "mureg_rigid.verify:main"
 mureg-rigid-metrics = "mureg_rigid.metrics:main"

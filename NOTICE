@@ -16,3 +16,28 @@ minimum rotation angle, rotation-vector damping, a post-registration rotation
 gate, and evaluation/command-line wrappers. It does not execute the original
 end-to-end candidate-scoring and conditional multistart pipeline.
 
+
+TCIA workflow integration
+-------------------------
+
+TCIA Prostate Rigid
+
+Contains primitives from Initial_Registration:
+https://github.com/dalbenzioG/Initial_Registration
+Commit: 21ee6ceb50bdb1e8d14072cb54ebb1bd2c611029
+License: Apache License 2.0 (included as LICENSE).
+Original authors retain their rights. UPSTREAM.json lists exact vendored hashes.
+
+The six primitive modules under tcia_prostate_rigid/_vendor/pca_icp are
+unmodified. Its initializer is replaced, and the upstream full registration
+pipeline is not included. TCIA-specific adapters, 24 proper PCA-axis candidates
+selected by minimum rotation, rotation-vector damping, NRRD/NIfTI handling,
+physical-mm resampling, verification, metrics, resumable exports and interfaces
+are adaptations. This package does not reproduce the upstream candidate-scoring
+or conditional multistart pipeline.
+
+Eigen Artemis DICOM geometry follows SlicerHeart DicomUltrasoundPlugin:
+https://github.com/SlicerHeart/SlicerHeart
+STL coordinate handling follows explicit SPACE metadata or Slicer default LPS.
+This project is not an official TCIA or 3D Slicer distribution.
+
