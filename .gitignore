@@ -19,7 +19,7 @@ rigid_output/
 *.log
 
 
-# TCIA medical images, segmentations and raw metadata
+# Medical images, segmentations and raw metadata
 *.nrrd
 *.nhdr
 *.mha

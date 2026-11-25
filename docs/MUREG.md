@@ -255,7 +255,7 @@ final testing. See [method provenance](METHOD.md).
 ## Development and Detailed Documentation
 
 ```bash
-python -m pip install '.[tcia,dicom]'
+python -m pip install .
 python -m unittest discover -s tests -v
 python -m pip wheel . --no-deps --wheel-dir dist
 ```
@@ -263,6 +263,7 @@ python -m pip wheel . --no-deps --wheel-dir dist
 - [Method and metric definitions](METHOD.md)
 - [Data and coordinate conventions](DATA_FORMAT.md)
 - [MR-to-US migration and validation](MR_TO_US_MIGRATION.md)
+- [Current release validation](RELEASE_VALIDATION.md)
 - [Historical release validation](VALIDATION.md)
 - [GitHub publishing instructions](PUBLISHING.md)
 

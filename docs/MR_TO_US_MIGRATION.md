@@ -1,7 +1,6 @@
 # MR-to-US direction change (0.3.0)
 
-Both workflows now use **MR moving -> US fixed**. The TCIA registration modules,
-geometry and defaults are unchanged. MuReg now fits the channel0 MR mask directly
+MuReg uses **MR moving -> US fixed**. It fits the channel0 MR mask directly
 to the channel0 US mask through the same mesh extraction, adapted PCA and rigid
 ICP calls. It does not obtain its fit by inverting a previous US-to-MR result;
 directional ICP fits need not be inverses of each other.
@@ -37,14 +36,12 @@ The packaged source contains no clinical data.
 ## Validation
 
 The 0.3.0 wheel was built and installed into an isolated workspace target on
-Windows/Python 3.12. All **30 synthetic tests passed** (5 MuReg and 25 TCIA).
-MuReg tests cover MR-to-US translation, a known 20-degree rotation with
-anisotropic voxel spacings, the fixed US grid, resampled labels, forward/inverse
-matrices, verification/metrics and rejection of historical direction metadata.
-TCIA tests include geometry, registration, MONAI export, resume, patient splitting,
-DICOM/STL conversion and Windows workers. All five installed entry points also
-passed their help checks. Upstream primitive hashes and all 23 integrated TCIA
-Python source hashes remain unchanged.
+Windows/Python 3.12. All **5 MuReg synthetic tests passed**. They cover MR-to-US
+translation, a known 20-degree rotation with anisotropic voxel spacings, the
+fixed US grid, resampled labels, forward/inverse matrices, verification/metrics
+and rejection of historical direction metadata. All four MuReg entry points
+passed their help checks. Vendored upstream primitive hashes remained unchanged.
+See [current release checks](RELEASE_VALIDATION.md).
 
 A two-case real-data smoke check ran the default MR-to-US profile. One case
 passed (rotation 4.571 degrees); one was rejected at the unchanged 30-degree gate

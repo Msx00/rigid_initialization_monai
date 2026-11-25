@@ -1,4 +1,4 @@
-> Historical MuReg-only checks. The combined 0.2.0 validation is recorded separately.
+> Historical 0.1.0 checks for the earlier US-to-MR direction. See [current release checks](RELEASE_VALIDATION.md).
 
 # MuReg 0.1.0 release validation
 

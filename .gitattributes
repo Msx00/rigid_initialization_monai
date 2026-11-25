@@ -1,4 +1,2 @@
 * text=auto
 src/pca_icp/*.py -text
-src/tcia_prostate_rigid/_vendor/pca_icp/*.py -text
-src/tcia_prostate_rigid/** -text
