@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mureg-rigid"
+version = "0.1.0"
+description = "Adapted PCA initialization and rigid ICP for paired MuReg MR-US NIfTI data"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+dependencies = [
+  "numpy>=1.26",
+  "scipy>=1.11",
+  "nibabel>=5.2",
+  "vtk>=9.3",
+  "scikit-image>=0.22",
+]
+
+[project.scripts]
+mureg-rigid = "mureg_rigid.run:main"
+mureg-rigid-masks = "mureg_rigid.masks:main"
+mureg-rigid-verify = "mureg_rigid.verify:main"
+mureg-rigid-metrics = "mureg_rigid.metrics:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+

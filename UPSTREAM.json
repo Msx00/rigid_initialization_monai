@@ -1,0 +1,18 @@
+{
+  "repository": "https://github.com/dalbenzioG/Initial_Registration",
+  "commit": "21ee6ceb50bdb1e8d14072cb54ebb1bd2c611029",
+  "license": "Apache-2.0",
+  "files_sha256": {
+    "pca_icp/__init__.py": "749036ffb18a34519cc57034a6878043d1acc97b424c378881bfaa9528fb4b51",
+    "pca_icp/dataset.py": "b19473e8d8d69cb0db747012f9005099375940d1987d5dd3a31012dac0d0aa60",
+    "pca_icp/types.py": "c1c2d8b5163977422aa6900c08502a4207e8bc14af6b2500b9753755f698cd56",
+    "pca_icp/pipeline.py": "06620da79d5141239efd8caecb9f22da04d458cfd13071a66c87334126bc29df",
+    "pca_icp/pca_init.py": "06757576690e5439730af4d015e4e2eaf2a6551258beb6ac85d5b6b7e67cd181",
+    "pca_icp/transforms.py": "244cc70973efd88daf5dd4389ad7f316038fcd6687292d3d9775d12958c6a222",
+    "pca_icp/icp.py": "63abb8dedec696f9a4c96cab86b075438fd7ee38d938757de13fb55364860cf3",
+    "pca_icp/io_vtk.py": "795e44b43f9e6494f6d8c3128aee23151b0ba59305e8eedfb97e510890a4d35e",
+    "pca_icp/preprocess.py": "cb2e25672e85cf873349c88a4fd1a3d7404cbb6e694674a02109dea05bed706a",
+    "pca_icp/metrics.py": "aeaebe2a0a9d5b61eb5d3c55a8a9e8f87459af2ec1be235f18fcd8eda0db68d2"
+  },
+  "changes": "Vendored pca_icp files are unmodified. Adaptations live in mureg_rigid."
+}

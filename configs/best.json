@@ -1,0 +1,7 @@
+{
+  "pca_rotation_gain": 0.1,
+  "smoothing": 0,
+  "landmarks": 7000,
+  "iterations": 30,
+  "decimation_reduction": 0.2
+}

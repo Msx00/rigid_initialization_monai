@@ -1,0 +1,18 @@
+MuReg Rigid Registration
+
+This distribution contains unmodified Python source files from:
+Initial_Registration, https://github.com/dalbenzioG/Initial_Registration
+Upstream commit: 21ee6ceb50bdb1e8d14072cb54ebb1bd2c611029
+Upstream license: Apache License, Version 2.0 (included as LICENSE).
+Original authors retain their rights in the upstream work.
+
+The src/pca_icp package contains the original mesh-processing, PCA-frame,
+candidate-scoring, transformation and ICP utilities. UPSTREAM.json records the
+vendored file hashes. Other upstream registration modes are not distributed.
+
+The src/mureg_rigid package is an adaptation. Its changes include MuReg NIfTI
+preprocessing and resampling, 24 proper PCA-axis correspondences selected by
+minimum rotation angle, rotation-vector damping, a post-registration rotation
+gate, and evaluation/command-line wrappers. It does not execute the original
+end-to-end candidate-scoring and conditional multistart pipeline.
+
