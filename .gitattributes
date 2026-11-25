@@ -1,0 +1,2 @@
+* text=auto
+src/pca_icp/*.py -text
